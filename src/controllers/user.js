@@ -4,6 +4,7 @@ import * as Yup from "yup";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import Mail from "../libs/Mail";
+import UploadImage from "../libs/UploadImage";
 
 class UserController {
   async login(req, res) {
@@ -58,7 +59,7 @@ class UserController {
       const schema = Yup.object().shape({
         name: Yup.string()
           .required("Nome é obrigatório")
-          .min(3, "Nome deve conter ao menos caracteres"),
+          .min(3, "Nome deve conter ao menos 3 caracteres"),
         email: Yup.string()
           .email("E-mail inválido")
           .required("E-mail é obrigatório"),
@@ -90,6 +91,96 @@ class UserController {
       return res.json({ user });
     } catch (error) {
       console.log({ error });
+      return res.status(400).json({ error: error?.message });
+    }
+  }
+
+  async update(req, res) {
+    try {
+      const schema = Yup.object().shape({
+        name: Yup.string().min(3, "Nome deve conter ao menos 3 caracteres"),
+        email: Yup.string().email("E-mail inválido"),
+        password: Yup.string().min(
+          6,
+          "Senha deve conter ao menos 6 caracteres"
+        ),
+      });
+
+      await schema.validate(req.body);
+
+      const { name, email, password } = req.body;
+
+      const user = await User.findByPk(req.userId);
+
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      if (name) {
+        user.name = name;
+      }
+
+      if (email) {
+        user.email = email;
+      }
+
+      if (password) {
+        user.password_hash = await bcrypt.hash(req.body.password, 8);
+      }
+
+      await user.save();
+
+      return res.json({ user });
+    } catch (error) {
+      return res.status(400).json({ error: error?.message });
+    }
+  }
+
+  async updateAvatar(req, res) {
+    try {
+      const schema = Yup.object().shape({
+        base64: Yup.string().required("Base64 é obrigatório."),
+        mime: Yup.string().required("Mime é obrigatório."),
+      });
+
+      await schema.validate(req.body);
+      const { base64, mime } = req.body;
+
+      const user = await User.findByPk(req.userId);
+
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      if (user.avatar_url) {
+        const splitted = user.avatar_url.split("/");
+        const oldKey = splitted[splitted.length - 1];
+
+        const deleteResponse = await UploadImage.delete(oldKey);
+
+        if (deleteResponse.error) {
+          return res.status(500).json({ error: deleteResponse });
+        }
+      }
+
+      const key = `user_${user.id}_${new Date().getTime()}`;
+
+      const response = await UploadImage.upload(key, base64, mime);
+
+      if (response?.error) {
+        return res
+          .status(400)
+          .json({ error: "Erro ao fazer o upload da imagem." });
+      }
+
+      user.avatar_url = response?.Location;
+
+      await user.save();
+
+      console.log({ response });
+
+      res.json(user);
+    } catch (error) {
       return res.status(400).json({ error: error?.message });
     }
   }

@@ -1,4 +1,4 @@
-import { User, Book, UserBook } from "../models";
+import { User, Book, UserBook, Author } from "../models";
 import * as Yup from "yup";
 
 class UserBookController {
@@ -56,6 +56,13 @@ class UserBookController {
           {
             model: Book,
             as: "book",
+            include: [
+              {
+                model: Author,
+                as: "author",
+                attributes: ["name"],
+              },
+            ],
           },
         ],
       });
