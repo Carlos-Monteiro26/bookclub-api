@@ -1,7 +1,7 @@
 import * as dotenv from "dotenv";
 dotenv.config();
-import db from "./src/models";
-import routes from "./src/routes/index";
+import db from "./models";
+import routes from "./routes";
 import express from "express";
 
 const app = express();
